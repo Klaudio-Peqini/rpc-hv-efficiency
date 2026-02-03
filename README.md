@@ -22,6 +22,13 @@ It produces, for each HV point:
 2. **JSON summaries** with ROI and global efficiencies + binomial errors
 3. **Efficiency vs HV plots** (simple and CMS/RPC-group style)
 
+
+** Download**
+
+To download the repository, type in the working directory
+
+```bash
+git clone https://github.com/Klaudio-Peqini/rpc-hv-efficiency
 ---
 
 ## 1) Repository layout
