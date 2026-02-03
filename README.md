@@ -29,6 +29,7 @@ To download the repository, type in the working directory
 
 ```bash
 git clone https://github.com/Klaudio-Peqini/rpc-hv-efficiency
+```
 ---
 
 ## 1) Repository layout
