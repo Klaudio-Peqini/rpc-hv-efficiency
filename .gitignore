@@ -40,9 +40,9 @@ logs/
 *.ndjson
 
 # Synthetic data (usually too large for git)
-synthetic_*/
+synthetic/**/*.root
 synthetic_calib_*/
-synthetic/
+synthetic_*/
 
 # =========================
 # OS / editor
