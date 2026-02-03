@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software for RPC HV efficiency studies, please cite it."
+title: "rpc-hv-efficiency: Tracklet-based RPC efficiency vs HV (2–4 chambers)"
+type: software
+version: 1.0.0
+date-released: 2026-02-03
+authors:
+  - family-names: "Peqini"
+    given-names: "Klaudio"
+repository-code: "https://github.com/<YOUR_GITHUB_USERNAME>/rpc-hv-efficiency"
+keywords:
+  - RPC
+  - CMS
+  - detector efficiency
+  - high voltage scan
+  - tracklets
+license: "MIT"
+

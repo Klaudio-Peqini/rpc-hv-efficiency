@@ -1,0 +1,56 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.egg-info/
+.dist-info/
+.venv/
+venv/
+.env
+
+# =========================
+# Jupyter (optional)
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# ROOT / HEP outputs
+# =========================
+*.root
+*.pcm
+*.d
+*.so.*
+*.C
+*.log
+
+# Produced outputs (default pipeline output folders)
+out_hv*/
+outputs/
+maps/
+summaries/
+plots/
+logs/
+
+# Tracklet dumps
+*.csv
+*.jsonl
+*.ndjson
+
+# Synthetic data (usually too large for git)
+synthetic_*/
+synthetic_calib_*/
+synthetic/
+
+# =========================
+# OS / editor
+# =========================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
