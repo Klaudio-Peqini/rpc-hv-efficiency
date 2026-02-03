@@ -23,7 +23,7 @@ It produces, for each HV point:
 3. **Efficiency vs HV plots** (simple and CMS/RPC-group style)
 
 
-** Download**
+# Download
 
 To download the repository, type in the working directory
 
