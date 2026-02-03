@@ -209,17 +209,17 @@ Choose z positions in cm, e.g.:
 Run:
 
 ```bash
-python3 src/rpc_hv_pipeline.py   --chambers /path/to/ChA /path/to/ChB /path/to/ChC   --producer src/rpc_tracklets_efficiency.py   --producer-mode optionc   --z 0 50 100   --anchor-index 0   --target-index 2   --tol-x 7.0   --tol-y 20.0   --tol-t 3.0   --hit-mode centroid   --require-ncluster-eq1   --out-dir out_hv_3ch   --fit
+python3 /path/to/src/rpc_hv_pipeline.py   --chambers /path/to/ChA /path/to/ChB /path/to/ChC   --producer /path/to/src/rpc_tracklets_efficiency.py   --producer-mode optionc   --summarizer /path/to/src/rpc_make_summary.py   --hvscript /path/to/src/rpc_plot_eff_vs_hv_cms.py   --z 0 50 100   --anchor-index 0   --target-index 2   --tol-x 7.0   --tol-y 20.0   --tol-t 3.0   --hit-mode centroid   --require-ncluster-eq1   --out-dir out_hv_3ch   --fit
 ```
 
 ### 7.2 Plot CMS/RPC-style ROI efficiency vs HV
 ```bash
-python3 src/rpc_plot_eff_vs_hv_cms.py   --use-roi   --series "ROI::out_hv_3ch/summaries/summary_HV*.json"   --out out_hv_3ch/plots/eff_roi_cms_style.png
+python3 /path/to/src/rpc_plot_eff_vs_hv_cms.py   --use-roi   --series "ROI::out_hv_3ch/summaries/summary_HV*.json"   --out out_hv_3ch/plots/eff_roi_cms_style.pdf #.png
 ```
 
 ### 7.3 Plot CMS/RPC-style global efficiency vs HV (optional)
 ```bash
-python3 src/rpc_plot_eff_vs_hv_cms.py   --series "Global::out_hv_3ch/summaries/summary_HV*.json"   --out out_hv_3ch/plots/eff_global_cms_style.png
+python3 /path/to/src/rpc_plot_eff_vs_hv_cms.py   --series "Global::out_hv_3ch/summaries/summary_HV*.json"   --out out_hv_3ch/plots/eff_global_cms_style.pdf #.png
 ```
 
 ---
@@ -240,24 +240,24 @@ Choose z positions (cm), e.g.:
 Run:
 
 ```bash
-python3 src/rpc_hv_pipeline.py   --chambers /path/to/ChA /path/to/ChB /path/to/ChC /path/to/ChD   --producer src/rpc_tracklets_efficiency.py   --producer-mode optionc   --z 0 40 80 120   --anchor-index 0   --target-index 3   --tol-x 7.0   --tol-y 20.0   --tol-t 3.0   --hit-mode centroid   --require-ncluster-eq1   --out-dir out_hv_4ch   --fit
+python3 /path/to/src/rpc_hv_pipeline.py   --chambers /path/to/ChA /path/to/ChB /path/to/ChC /path/to/ChD   --producer /path/to/src/rpc_tracklets_efficiency.py   --producer-mode optionc   --summarizer /path/to/src/rpc_make_summary.py   --hvscript /path/to/src/rpc_plot_eff_vs_hv_cms.py   --z 0 40 80 120   --anchor-index 0   --target-index 3   --tol-x 7.0   --tol-y 20.0   --tol-t 3.0   --hit-mode centroid   --require-ncluster-eq1   --out-dir out_hv_4ch   --fit
 ```
 
 ### 8.2 Plot CMS/RPC-style ROI efficiency vs HV
 ```bash
-python3 src/rpc_plot_eff_vs_hv_cms.py   --use-roi   --series "ROI::out_hv_4ch/summaries/summary_HV*.json"   --out out_hv_4ch/plots/eff_roi_cms_style.png
+python3 /path/to/src/rpc_plot_eff_vs_hv_cms.py   --use-roi   --series "ROI::out_hv_4ch/summaries/summary_HV*.json"   --out out_hv_4ch/plots/eff_roi_cms_style.pdf #.png
 ```
 
 ### 8.3 Plot CMS/RPC-style global efficiency vs HV (optional)
 ```bash
-python3 src/rpc_plot_eff_vs_hv_cms.py   --series "Global::out_hv_4ch/summaries/summary_HV*.json"   --out out_hv_4ch/plots/eff_global_cms_style.png
+python3 /path/to/src/rpc_plot_eff_vs_hv_cms.py   --series "Global::out_hv_4ch/summaries/summary_HV*.json"   --out out_hv_4ch/plots/eff_global_cms_style.pdf #.png
 ```
 
 ---
 
 ## 9) Synthetic calibration dataset (recommended for regression)
 
-The `synthetic/make_synthetic_rpc_hvscan.py` generator creates ROOT files with:
+The `/path/to/synthetic/make_synthetic_rpc_hvscan.py` generator creates ROOT files with:
 
 - the same branch schema as real data
 - controlled eligibility and matching
@@ -301,3 +301,5 @@ Check:
 
 ## License / Contact
 Update these fields as needed for your institution/group policy.
+Klaudio Peqini: University of Tirana, CMS-Albania UT-team
+Ilirjan Margjeka: University of Tirana, associated with, CMS-Albania UT-team
