@@ -97,17 +97,45 @@ Efficiency is defined as:
 
 ## 4) 3D Tracklet Visualization
 
-Script:
+The script:
 
     src/rpc_plot_tracklets_3d.py
 
-Features:
+provides a full 3D geometrical visualization of reconstructed tracklets across all chambers.
 
--   Thin black lines = reconstructed tracklets
--   Colored anchor & target endpoints (same color per tracklet)
--   Optional intermediate points
--   RPC chamber contours drawn at each z-plane
--   Customizable chamber rectangle via:
+# 4.1 What the script does
+
+For each event passing the matching criteria:
+
+- Reconstructs a straight-line trajectory using the chamber hit coordinates and z-positions.
+- Draws a thin black line representing the particle trajectory through space.
+- Highlights the anchor chamber hit and the target chamber hit.
+- Uses a consistent color for both endpoints of the same tracklet.
+- Optionally displays intermediate chamber hits (for 3- or 4-chamber setups).
+- Draws RPC chamber contours at their corresponding z-planes.
+
+This allows:
+
+- Direct visual validation of tracklet geometry
+- Inspection of misalignment effects
+- Verification of z-position configuration
+- Presentation-ready detector visualization
+
+# 4.2 Geometry Requirements
+
+You must provide:
+
+- ```--files```: one ROOT file per chamber (same HV point)
+- ```--z```: one z-position (cm) per chamber
+- ```--anchor-index```: index of the anchor chamber
+- ```--target-index```: index of the target chamber
+
+Also: 
+- Thin black lines = reconstructed tracklets
+- Colored anchor & target endpoints (same color per tracklet)
+- Optional intermediate points
+- RPC chamber contours drawn at each z-plane
+- Customizable chamber rectangle via:
 
 ``` bash
 python3 src/rpc_plot_tracklets_3d.py \
