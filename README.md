@@ -103,7 +103,7 @@ The script:
 
 provides a full 3D geometrical visualization of reconstructed tracklets across all chambers.
 
-# 4.1 What the script does
+### 4.1 What the script does
 
 For each event passing the matching criteria:
 
@@ -121,7 +121,7 @@ This allows:
 - Verification of z-position configuration
 - Presentation-ready detector visualization
 
-# 4.2 Geometry Requirements
+### 4.2 Geometry Requirements
 
 You must provide:
 
