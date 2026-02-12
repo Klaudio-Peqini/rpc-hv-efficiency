@@ -110,7 +110,8 @@ Features:
 -   Customizable chamber rectangle via:
 
 ``` bash
---chamber-rect xmin xmax ymin ymax
+python3 src/rpc_plot_tracklets_3d.py \
+--files path/to/file1/HV6/data.root path/to/file2/HV6/data.root --z z1 z2 --tree events --tag HV6 --anchor-index 0 --target-index -1 --max-tracks 400 --show-intermediate --pdf --chamber-rect 0 54 0 120 --chamber-style k --chamber-lw 1.2
 ```
 
 ### Example (3 chambers)
