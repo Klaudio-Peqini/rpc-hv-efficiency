@@ -216,4 +216,3 @@ python3 synthetic/make_synthetic_rpc_hvscan.py \
 ## Contact
 
 Klaudio Peqini --- University of Tirana, CMS-Albania UT-team\
-Ilirjan Margjeka --- University of Tirana, CMS-Albania UT-team
