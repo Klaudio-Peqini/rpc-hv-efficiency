@@ -167,6 +167,24 @@ python3 src/rpc_plot_tracklets_3d.py \
   --pdf
 ```
 
+### Example (3D tracklet reconstruction for 2 chambers in a stylized fashion)
+
+```bash
+python3 rpc_plot_tracklets_3d.py \
+  --files /path/to/file1/data.root /path/to/file2/data.root \
+  --z 0 10 \
+  --tree events \
+  --tag <working_point_label> \
+  --anchor-index 0 \
+  --target-index -1 \
+  --max-tracks 1000 \
+  --show-intermediate \
+  --pdf \
+  --chamber-rect 0 60 0 120 \
+  --chamber-style k \
+  --chamber-lw 1.2
+```
+
 ------------------------------------------------------------------------
 
 ## 5) Running 3-Chamber Pipeline
