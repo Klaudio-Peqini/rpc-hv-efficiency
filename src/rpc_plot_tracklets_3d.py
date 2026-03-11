@@ -46,9 +46,18 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib import colors
+from matplotlib.cm import ScalarMappable
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import ROOT
+
+
+def in_bounds(x, y, rect):
+    """Check whether a point lies inside the detector rectangle."""
+    x_min, x_max, y_min, y_max = rect
+    return (x_min <= x <= x_max) and (y_min <= y <= y_max)
 
 
 def pick_hit(ev, hit_mode: str = "earliest"):
@@ -80,6 +89,16 @@ def fit_line(zs, vs):
     A = np.vstack([z, np.ones_like(z)]).T
     (a, b), *_ = np.linalg.lstsq(A, v, rcond=None)
     return float(a), float(b)
+
+
+def track_angle_deg(p0, p1):
+    """Angle with respect to the detector normal (z axis)."""
+    dx = p1[0] - p0[0]
+    dy = p1[1] - p0[1]
+    dz = p1[2] - p0[2]
+    transverse = np.hypot(dx, dy)
+    theta = np.degrees(np.arctan2(transverse, abs(dz) + 1e-12))
+    return float(theta)
 
 
 def main():
@@ -116,8 +135,12 @@ def main():
                     help="Chamber contour as rectangle in X,Y (default: 0 54 0 120).")
     ap.add_argument("--chamber-style", default="k",
                     help="Matplotlib style/color for chamber contour lines (default: k).")
-    ap.add_argument("--chamber-lw", type=float, default=0.8,
-                    help="Line width for chamber contours (default: 0.8).")
+    ap.add_argument("--chamber-lw", type=float, default=1.0,
+                    help="Line width for chamber contours (default: 1.0).")
+    ap.add_argument("--clip-to-chamber", action="store_true",
+                    help="Reject tracklets with any chamber point outside the detector rectangle.")
+    ap.add_argument("--direction", choices=["down", "up"], default="down",
+                    help="Arrow direction along the tracklet: 'down' for cosmic-like top-to-bottom, 'up' otherwise.")
     args = ap.parse_args()
 
     files = [Path(p) for p in args.files]
@@ -191,10 +214,10 @@ def main():
 
         z_t = zs[tgt]
         if len(z_ref) >= 2:
-            ax, bx = fit_line(z_ref, x_ref)
-            ay, by = fit_line(z_ref, y_ref)
-            x_pred = ax * z_t + bx
-            y_pred = ay * z_t + by
+            ax_fit, bx = fit_line(z_ref, x_ref)
+            ay_fit, by = fit_line(z_ref, y_ref)
+            x_pred = ax_fit * z_t + bx
+            y_pred = ay_fit * z_t + by
         else:
             x_pred, y_pred = xA, yA
 
@@ -207,6 +230,9 @@ def main():
 
         order = np.argsort(zs)
         pts = [(hits[j][0], hits[j][1], zs[j]) for j in order]
+
+        if args.clip_to_chamber and any(not in_bounds(px, py, args.chamber_rect) for px, py, _ in pts):
+            continue
 
         tracks.append({
             "entry": i,
@@ -226,55 +252,108 @@ def main():
     out_png = args.out or f"tracklets_3d_{args.tag}.png"
     out_pdf = out_png.replace(".png", ".pdf")
 
-    fig = plt.figure(figsize=(9.0, 7.5))
+    fig = plt.figure(figsize=(10.2, 8.2))
     ax = fig.add_subplot(111, projection="3d")
 
-    # --- Draw chamber contours (one per z plane)
+    # --- Draw chamber contours and semi-transparent detector planes
     x_min, x_max, y_min, y_max = args.chamber_rect
     rect_x = [x_min, x_max, x_max, x_min, x_min]
     rect_y = [y_min, y_min, y_max, y_max, y_min]
     for zc in zs:
         rect_z = [zc] * len(rect_x)
-        ax.plot(rect_x, rect_y, rect_z, args.chamber_style, linewidth=args.chamber_lw, alpha=0.9)
+        verts = [[(x_min, y_min, zc), (x_max, y_min, zc), (x_max, y_max, zc), (x_min, y_max, zc)]]
+        plane = Poly3DCollection(verts, facecolors=(0.86, 0.90, 0.96, 0.18), edgecolors="none")
+        ax.add_collection3d(plane)
+        ax.plot(rect_x, rect_y, rect_z, args.chamber_style, linewidth=args.chamber_lw, alpha=0.95, zorder=1)
 
-    cmap = plt.get_cmap("tab20")
-    ncol = cmap.N
+    thetas = [track_angle_deg(tr["pts"][0], tr["pts"][-1]) for tr in tracks]
+    theta_max = max(5.0, np.percentile(thetas, 98))
+    norm = colors.Normalize(vmin=0.0, vmax=theta_max)
+    cmap = plt.get_cmap("viridis")
 
-    for k, tr in enumerate(tracks):
+    for tr, theta in zip(tracks, thetas):
         pts = tr["pts"]
         xs = [p[0] for p in pts]
         ys = [p[1] for p in pts]
         zz = [p[2] for p in pts]
 
-        ax.plot(xs, ys, zz, linewidth=0.7, alpha=0.8, color="black")
+        c = cmap(norm(theta))  # blue/green = near-vertical tracks, yellow = more inclined tracks
 
-        c = cmap(k % ncol)
+        # Faint skeleton of the whole fitted/matched trajectory.
+        ax.plot(xs, ys, zz, linewidth=0.75, alpha=0.18, color="0.2", solid_capstyle="round", zorder=2)
+
+        p_low = pts[0]
+        p_high = pts[-1]
+        start = p_high if args.direction == "down" else p_low
+        end = p_low if args.direction == "down" else p_high
+        mid = (
+            0.5 * (start[0] + end[0]),
+            0.5 * (start[1] + end[1]),
+            0.5 * (start[2] + end[2]),
+        )
+
+        # Arrow with head at the midpoint to convey direction without hiding the detector planes.
+        ax.quiver(
+            start[0], start[1], start[2],
+            mid[0] - start[0], mid[1] - start[1], mid[2] - start[2],
+            arrow_length_ratio=0.18, linewidth=1.35, color=c, alpha=0.98,
+            normalize=False,
+        )
+        # Continuation after the arrowhead so the full tracklet remains visible.
+        ax.plot([mid[0], end[0]], [mid[1], end[1]], [mid[2], end[2]],
+                linewidth=1.35, alpha=0.98, color=c, solid_capstyle="round", zorder=3)
+
         xa, ya, za = tr["anchor"]
         xt, yt, zt = tr["target"]
-        ax.scatter([xa], [ya], [za], s=35, color=c, depthshade=False)
-        ax.scatter([xt], [yt], [zt], s=35, color=c, depthshade=False)
+        ax.scatter([xa], [ya], [za], s=18, color=c, edgecolors="white", linewidths=0.35,
+                   depthshade=False, alpha=0.95, zorder=4)
+        ax.scatter([xt], [yt], [zt], s=18, color=c, edgecolors="white", linewidths=0.35,
+                   depthshade=False, alpha=0.95, zorder=4)
 
         if args.show_intermediate and len(pts) > 2:
             xi = xs[1:-1]
             yi = ys[1:-1]
             zi = zz[1:-1]
-            ax.scatter(xi, yi, zi, s=10, color="0.65", depthshade=False)
+            ax.scatter(xi, yi, zi, s=8, color="0.55", alpha=0.38, depthshade=False, zorder=3)
 
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
+    ax.set_xlabel("X", labelpad=10)
+    ax.set_ylabel("Y", labelpad=10)
+    ax.set_zlabel("Z", labelpad=8)
 
-    ax.set_title(args.title or f"RPC tracklets (N={len(tracks)}) — {args.tag}")
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    ax.set_zlim(min(zs), max(zs))
+    try:
+        ax.set_box_aspect((x_max - x_min, y_max - y_min, max(zs) - min(zs)))
+    except AttributeError:
+        pass
+
+    ax.set_title(args.title or f"RPC tracklets (N={len(tracks)}) — {args.tag}", pad=16)
     ax.view_init(elev=args.elev, azim=args.azim)
-    ax.grid(True)
+
+    # Cleaner "publication-like" styling.
+    ax.grid(True, alpha=0.22, linewidth=0.6)
+    for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+        try:
+            axis.pane.set_facecolor((1.0, 1.0, 1.0, 0.0))
+            axis.pane.set_edgecolor((1.0, 1.0, 1.0, 0.0))
+        except AttributeError:
+            pass
+    ax.tick_params(axis="both", which="major", labelsize=10, pad=3)
+
+    sm = ScalarMappable(norm=norm, cmap=cmap)
+    sm.set_array([])
+    cbar = fig.colorbar(sm, ax=ax, fraction=0.035, pad=0.06, shrink=0.84)
+    cbar.set_label(r"Track inclination $\theta$ [deg]", rotation=90, labelpad=12)
 
     fig.tight_layout()
-    fig.savefig(out_png, dpi=220)
+    fig.savefig(out_png, dpi=300, bbox_inches="tight")
     if args.pdf:
-        fig.savefig(out_pdf)
+        fig.savefig(out_pdf, bbox_inches="tight")
     plt.close(fig)
 
     print(f"Matched tracklets plotted: {len(tracks)} (scanned {scanned} events)")
+    print(f"Arrow direction: {args.direction}")
     print(f"Saved: {out_png}")
     if args.pdf:
         print(f"Saved: {out_pdf}")
