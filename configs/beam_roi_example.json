@@ -1,0 +1,10 @@
+{
+  "roi_name": "scint_overlap",
+  "roi_rect": [
+    0,
+    22,
+    0,
+    130
+  ],
+  "notes": "Example beam ROI used for summary extraction and beam-regime cuts."
+}
