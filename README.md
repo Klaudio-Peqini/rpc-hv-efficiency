@@ -323,7 +323,7 @@ In practice this means:
 
 ------------------------------------------------------------------------
 
-## 8) Synthetic Dataset Generator
+## 9) Synthetic Dataset Generator
 
 ``` bash
 python3 synthetic/make_synthetic_rpc_hvscan.py \
@@ -335,7 +335,7 @@ python3 synthetic/make_synthetic_rpc_hvscan.py \
 
 ------------------------------------------------------------------------
 
-## 9) Troubleshooting
+## 10) Troubleshooting
 
 -   Ensure PyROOT is available.
 -   Verify TTree name (`--tree`, default `events`).
