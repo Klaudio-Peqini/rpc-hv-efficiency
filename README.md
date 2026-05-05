@@ -356,6 +356,13 @@ python3 src/rpc_plot_efficiency_maps.py \
   --input-dir out_dynamic_regime/maps \
   --png
 ```
+If one wants to keep only PDF output, omit --png:
+
+```
+python3 rpc_plot_efficiency_maps.py \
+  --input-dir out_dynamic_regime/maps \
+  --plot-range 0 60 0 160
+```
 
 To reproduce the older display range from the attached examples, where the Y-axis reaches 160 cm:
 
@@ -366,7 +373,7 @@ python3 src/rpc_plot_efficiency_maps.py \
 ```
 
 The Δx, Δy, θx, θy diagnostic PDFs cannot be reconstructed from the map ROOT files alone unless
-those residual histograms or CSV arrays are also saved by the producer.
+the producer also saves those residual histograms or CSV arrays.
 
 ------------------------------------------------------------------------
 
