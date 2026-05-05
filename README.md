@@ -329,11 +329,13 @@ The `rpc_plot_efficiency_maps.py` reads the standard ROOT map histograms h_total
 which are the map outputs described in your repository workflow. It reproduces the three map-style figures: Total hits,
 Reconstructed tracklets and Local Efficiency, matching the visual structure of the enclosed PDFs.
 
-Use it like this from the repository root:
+Use it like this from the repository root to create the png files:
 
 ```
-python3 src/rpc_plot_efficiency_maps.py \
-  --input-dir out_dynamic_regime/maps
+python3 rpc_plot_efficiency_maps.py \
+  --input-dir out_dynamic_regime/maps \
+  --plot-range 0 60 0 160 \
+  --png
 ```
 
 It will write outputs by default to `out_dynamic_regime/map_plots/`
