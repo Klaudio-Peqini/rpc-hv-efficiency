@@ -314,16 +314,18 @@ The repository now supports two analysis regimes:
 -   **normal**: intended for natural background / broad detector acceptance studies
 -   **beam**: intended for localized beam-region studies and ROI-centered analyses
 
-In practice this means:
+In practice, this means:
 
-- output names include the regime label
-- cut estimation can be performed separately for each regime
-- summaries can be produced consistently without overwriting one another
-- beam-region studies can be kept distinct from general detector-efficiency scans
+- Output names include the regime label
+- Cut estimation can be performed separately for each regime
+- Summaries can be produced consistently without overwriting one another
+- Beam-region studies can be kept distinct from general detector-efficiency scans
 
 ------------------------------------------------------------------------
 
-## 8) The `rpc_plot_efficiency_maps.py` reads the standard ROOT map histograms h_total, h_tracklet, and h_eff,
+## 8) Creating relevant plots
+
+The `rpc_plot_efficiency_maps.py` reads the standard ROOT map histograms h_total, h_tracklet, and h_eff,
 which are the map outputs described in your repository workflow. It reproduces the three map-style figures: Total hits,
 Reconstructed tracklets and Local Efficiency, matching the visual structure of the enclosed PDFs.
 
