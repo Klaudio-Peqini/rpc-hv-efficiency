@@ -375,6 +375,15 @@ python3 src/rpc_plot_efficiency_maps.py \
 The Δx, Δy, θx, θy diagnostic PDFs cannot be reconstructed from the map ROOT files alone unless
 the producer also saves those residual histograms or CSV arrays.
 
+There is also the option to tune the annotation without editing the script, for example:
+
+```
+python3 rpc_plot_efficiency_maps.py \
+  --input-dir out_dynamic_regime/maps \
+  --plot-range 0 60 0 160 \
+  --cms-annotation "GIF++ Test Beam November 2025\n1.4 mm double gap iRPC\nFEB v2.3 Petiroc 2C\nthreshold ~ 40 fC\n\nGIF++ source off"
+```
+
 ------------------------------------------------------------------------
 
 ## 9) Synthetic Dataset Generator
