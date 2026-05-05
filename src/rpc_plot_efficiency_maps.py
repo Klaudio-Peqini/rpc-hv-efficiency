@@ -1,28 +1,47 @@
 #!/usr/bin/env python3
 """
-rpc_plot_efficiency_maps.py
+rpc_plot_efficiency_maps_cms_style.py
 
-Batch-plot ROOT efficiency maps produced by rpc-hv-efficiency.
+Batch-plot ROOT efficiency maps produced by rpc-hv-efficiency, using a
+CMS/GIF++-style visual convention similar to the conventional iRPC hit-profile
+plots:
+
+  - CMS Preliminary label at the top-left
+  - GIF++ facility label at the top-right
+  - inward ticks on all four sides, with minor ticks
+  - ROOT/CMS-like white-to-red palette by default
+  - active-area chamber outline overlaid in black by default
+  - compact detector/run annotation inside the plotting frame
 
 Expected input ROOT files contain the standard histograms:
   - h_total     : denominator / eligible events
   - h_tracklet  : numerator / matched reconstructed tracklets
   - h_eff       : local efficiency map, h_tracklet / h_total
 
-The script uses a ROOT/PyROOT reader when available, and falls back to uproot
-when PyROOT is not available.  The plotting backend is forced to Agg so the
-script can run safely on Wayland/headless machines and inside batch jobs.
+The script uses PyROOT when available and falls back to uproot when PyROOT is
+not available.  The plotting backend is forced to Agg so the script can run on
+Wayland/headless machines and inside batch jobs.
 
-Example:
-  python3 src/rpc_plot_efficiency_maps.py \
+Examples
+--------
+Default CMS/GIF++ style:
+
+  python3 rpc_plot_efficiency_maps_cms_style.py \
     --input-dir out_dynamic_regime/maps \
-    --out-dir out_dynamic_regime/map_plots \
     --png
 
-To reproduce the older visual range shown in some legacy plots:
-  python3 src/rpc_plot_efficiency_maps.py \
+Force the displayed active chamber range:
+
+  python3 rpc_plot_efficiency_maps_cms_style.py \
     --input-dir out_dynamic_regime/maps \
-    --plot-range 0 60 0 160
+    --plot-range 0 60 0 160 \
+    --png
+
+Use the older simple style with centered titles:
+
+  python3 rpc_plot_efficiency_maps_cms_style.py \
+    --input-dir out_dynamic_regime/maps \
+    --plain-style
 """
 
 from __future__ import annotations
@@ -34,7 +53,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -43,6 +62,7 @@ import matplotlib
 # Avoid Qt/Wayland problems when saving figures from scripts.
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.ticker import AutoMinorLocator  # noqa: E402
 
 
 HV_TO_KV = {
@@ -58,6 +78,34 @@ HV_TO_KV = {
     "HV10": 7.4,
     "HV11": 7.5,
 }
+
+DEFAULT_CMS_ANNOTATION = (
+    "GIF++ Test Beam November 2025\n"
+    "1.4 mm double gap iRPC\n"
+    "FEB v2.3 Petiroc 2C\n"
+    "threshold ~ 40 fC\n\n"
+    "GIF++ source off"
+)
+
+# Default outline chosen to match the conventional 60 cm x 160 cm display.
+# If you need the older 0--120 cm outline, pass:
+#   --overlay-poly 0 0 0 120 30 120 55 0 0 0
+DEFAULT_CMS_OVERLAY_POLY = [
+    0.0,
+    0.0,
+    0.0,
+    146.0,
+    25.0,
+    146.0,
+    30.0,
+    140.0,
+    54.0,
+    5.0,
+    51.0,
+    0.0,
+    0.0,
+    0.0,
+]
 
 
 @dataclass(frozen=True)
@@ -249,21 +297,45 @@ def read_maps(
         return _read_with_uproot(root_path, h_total_name, h_tracklet_name, h_eff_name)
 
 
-def setup_plot_style(dpi: int) -> None:
-    plt.rcParams.update(
-        {
-            "figure.dpi": dpi,
-            "savefig.dpi": dpi,
-            "font.family": "DejaVu Sans",
-            "font.size": 11,
-            "axes.titlesize": 12,
-            "axes.labelsize": 11,
-            "xtick.labelsize": 10,
-            "ytick.labelsize": 10,
-            "axes.grid": False,
-            "figure.constrained_layout.use": False,
-        }
-    )
+def setup_plot_style(dpi: int, cms_style: bool) -> None:
+    base = {
+        "figure.dpi": dpi,
+        "savefig.dpi": dpi,
+        "font.family": "DejaVu Sans",
+        "font.size": 12,
+        "axes.titlesize": 13,
+        "axes.labelsize": 14,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11,
+        "axes.grid": False,
+        "figure.constrained_layout.use": False,
+        "axes.linewidth": 0.9,
+        "mathtext.fontset": "dejavusans",
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42,
+    }
+
+    if cms_style:
+        base.update(
+            {
+                "xtick.direction": "in",
+                "ytick.direction": "in",
+                "xtick.top": True,
+                "ytick.right": True,
+                "xtick.minor.visible": True,
+                "ytick.minor.visible": True,
+                "xtick.major.size": 6,
+                "ytick.major.size": 6,
+                "xtick.minor.size": 3,
+                "ytick.minor.size": 3,
+                "xtick.major.width": 0.8,
+                "ytick.major.width": 0.8,
+                "xtick.minor.width": 0.7,
+                "ytick.minor.width": 0.7,
+            }
+        )
+
+    plt.rcParams.update(base)
 
 
 def draw_overlay_polygon(
@@ -276,7 +348,101 @@ def draw_overlay_polygon(
     if len(coords) < 6 or len(coords) % 2 != 0:
         raise ValueError("--overlay-poly must contain an even number of coordinates: x1 y1 x2 y2 ...")
     xy = np.asarray(coords, dtype=float).reshape(-1, 2)
-    ax.plot(xy[:, 0], xy[:, 1], color=color, linewidth=linewidth, alpha=alpha)
+    ax.plot(
+        xy[:, 0],
+        xy[:, 1],
+        color=color,
+        linewidth=linewidth,
+        alpha=alpha,
+        solid_joinstyle="miter",
+        solid_capstyle="butt",
+        zorder=5,
+    )
+
+
+def make_cmap(name: str, cms_style: bool):
+    cmap = plt.get_cmap(name).copy()
+    if cms_style:
+        cmap.set_bad("white")
+        cmap.set_under("white")
+    return cmap
+
+
+def maybe_mask_zeros(values: np.ndarray, mask_zeros: bool) -> np.ndarray:
+    if not mask_zeros:
+        return values
+    return np.ma.masked_where(values <= 0.0, values)
+
+
+def apply_cms_axes_style(ax: plt.Axes) -> None:
+    ax.tick_params(axis="both", which="both", direction="in", top=True, right=True)
+    ax.xaxis.set_minor_locator(AutoMinorLocator())
+    ax.yaxis.set_minor_locator(AutoMinorLocator())
+    for spine in ax.spines.values():
+        spine.set_linewidth(0.9)
+
+
+def draw_cms_header(
+    ax: plt.Axes,
+    cms_label: str,
+    cms_extra: str,
+    facility_label: str,
+    fontsize_cms: float,
+    fontsize_facility: float,
+) -> None:
+    left_text = rf"$\bf{{{cms_label}}}$"
+    if cms_extra:
+        left_text += rf" $\it{{{cms_extra}}}$"
+    ax.text(
+        0.0,
+        1.012,
+        left_text,
+        transform=ax.transAxes,
+        ha="left",
+        va="bottom",
+        fontsize=fontsize_cms,
+        clip_on=False,
+    )
+    if facility_label:
+        ax.text(
+            1.0,
+            1.012,
+            facility_label,
+            transform=ax.transAxes,
+            ha="right",
+            va="bottom",
+            fontsize=fontsize_facility,
+            clip_on=False,
+        )
+
+
+def draw_cms_annotation(
+    ax: plt.Axes,
+    text: str,
+    fontsize: float,
+    x: float,
+    y: float,
+) -> None:
+    if not text.strip():
+        return
+    ax.text(
+        x,
+        y,
+        text,
+        transform=ax.transAxes,
+        ha="right",
+        va="top",
+        fontsize=fontsize,
+        linespacing=1.05,
+        clip_on=False,
+    )
+
+
+def finalize_colorbar(cbar, cms_style: bool) -> None:
+    if cms_style:
+        cbar.ax.tick_params(direction="in", which="both", length=5, width=0.8)
+        cbar.ax.minorticks_on()
+        cbar.outline.set_linewidth(0.9)
 
 
 def plot_one_map(
@@ -296,27 +462,62 @@ def plot_one_map(
     overlay_color: str,
     overlay_lw: float,
     overlay_alpha: float,
+    cms_style: bool,
+    mask_zeros: bool,
+    cms_label: str,
+    cms_extra: str,
+    facility_label: str,
+    cms_annotation: str,
+    cms_annotation_fontsize: float,
+    cms_annotation_x: float,
+    cms_annotation_y: float,
+    cms_fontsize: float,
+    facility_fontsize: float,
+    show_plain_title_in_cms_style: bool,
 ) -> List[Path]:
-    fig, ax = plt.subplots(figsize=(6.0, 5.2))
-    cm = plt.get_cmap(cmap)
-    ax.set_facecolor(cm(0.0))
+    fig, ax = plt.subplots(figsize=(6.7, 6.1) if cms_style else (6.0, 5.2))
+    cm = make_cmap(cmap, cms_style=cms_style)
+    ax.set_facecolor("white" if cms_style else cm(0.0))
 
-    # uproot/PyROOT convention here is values[ix, iy].  Matplotlib expects
+    plot_values = maybe_mask_zeros(values, mask_zeros=mask_zeros)
+
+    # uproot/PyROOT convention here is values[ix, iy]. Matplotlib expects
     # pcolormesh data as [iy, ix], therefore the transpose.
     mesh = ax.pcolormesh(
         x_edges,
         y_edges,
-        values.T,
+        plot_values.T,
         shading="auto",
-        cmap=cmap,
+        cmap=cm,
         vmin=vmin,
         vmax=vmax,
         rasterized=True,
     )
 
-    ax.set_title(title)
-    ax.set_xlabel("X [cm]")
-    ax.set_ylabel("Y [cm]")
+    if cms_style:
+        if show_plain_title_in_cms_style:
+            ax.set_title(title, pad=16)
+        draw_cms_header(
+            ax=ax,
+            cms_label=cms_label,
+            cms_extra=cms_extra,
+            facility_label=facility_label,
+            fontsize_cms=cms_fontsize,
+            fontsize_facility=facility_fontsize,
+        )
+        draw_cms_annotation(
+            ax=ax,
+            text=cms_annotation,
+            fontsize=cms_annotation_fontsize,
+            x=cms_annotation_x,
+            y=cms_annotation_y,
+        )
+        apply_cms_axes_style(ax)
+    else:
+        ax.set_title(title)
+
+    ax.set_xlabel("X [cm]", loc="right")
+    ax.set_ylabel("Y [cm]", loc="top")
 
     if plot_range is None:
         ax.set_xlim(float(x_edges[0]), float(x_edges[-1]))
@@ -329,15 +530,20 @@ def plot_one_map(
     if overlay:
         draw_overlay_polygon(ax, overlay_poly, overlay_color, overlay_lw, overlay_alpha)
 
-    cbar = fig.colorbar(mesh, ax=ax)
+    cbar = fig.colorbar(mesh, ax=ax, pad=0.055, fraction=0.055)
     cbar.set_label(cbar_label)
+    finalize_colorbar(cbar, cms_style=cms_style)
 
-    fig.tight_layout()
+    if cms_style:
+        # Manual margins keep the CMS header and right colorbar label from being clipped.
+        fig.subplots_adjust(left=0.115, right=0.86, bottom=0.105, top=0.90)
+    else:
+        fig.tight_layout()
 
     written: List[Path] = []
     for fmt in formats:
         out = out_base.with_suffix(f".{fmt}")
-        fig.savefig(out, bbox_inches="tight")
+        fig.savefig(out, bbox_inches="tight", pad_inches=0.035)
         written.append(out)
     plt.close(fig)
     return written
@@ -357,7 +563,7 @@ def discover_root_files(args: argparse.Namespace) -> List[Path]:
 
 def build_name_tag(meta: FileMeta, legacy_names: bool) -> str:
     if legacy_names:
-        # Historical style, e.g. Total_7kV_.pdf.  Avoid this when several
+        # Historical style, e.g. Total_7kV_.pdf. Avoid this when several
         # regimes are plotted into the same directory, because names collide.
         return f"{meta.hv_label_for_file}_"
     return f"{meta.hv_label_for_file}_{meta.run_tag}"
@@ -374,9 +580,20 @@ def finite_max(values: np.ndarray) -> float:
     return float(finite.max()) if finite.size else 1.0
 
 
-def main() -> None:
-    t0 = time.perf_counter()
+def bin_area_grid(x_edges: np.ndarray, y_edges: np.ndarray) -> np.ndarray:
+    dx = np.diff(x_edges)
+    dy = np.diff(y_edges)
+    return dx[:, None] * dy[None, :]
 
+
+def maybe_density(values: np.ndarray, x_edges: np.ndarray, y_edges: np.ndarray, enabled: bool) -> np.ndarray:
+    if not enabled:
+        return values
+    area = bin_area_grid(x_edges, y_edges)
+    return np.divide(values, area, out=np.zeros_like(values, dtype=float), where=(area > 0))
+
+
+def make_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Plot h_total, h_tracklet, and h_eff maps from rpc-hv-efficiency ROOT outputs."
     )
@@ -393,10 +610,33 @@ def main() -> None:
 
     parser.add_argument("--png", action="store_true", help="Also write PNG files.")
     parser.add_argument("--no-pdf", action="store_true", help="Do not write PDF files.")
-    parser.add_argument("--dpi", type=int, default=200, help="Output DPI for raster formats.")
-    parser.add_argument("--cmap", default="viridis", help="Matplotlib colormap.")
+    parser.add_argument("--dpi", type=int, default=250, help="Output DPI for raster formats.")
+
+    parser.add_argument(
+        "--cmap",
+        default=None,
+        help="Colormap used for all maps. If omitted, --count-cmap and --eff-cmap are used.",
+    )
+    parser.add_argument("--count-cmap", default="OrRd", help="Colormap for Total/Tracklets maps.")
+    parser.add_argument("--eff-cmap", default="OrRd", help="Colormap for Local Efficiency maps.")
     parser.add_argument("--count-vmax", type=float, default=None, help="Fixed vmax for Total/Tracklets maps.")
     parser.add_argument("--eff-vmax", type=float, default=1.0, help="Fixed vmax for Local Efficiency maps.")
+    parser.add_argument(
+        "--density",
+        action="store_true",
+        help="Divide count maps by bin area. Use this if the colorbar should literally be [1/cm^2].",
+    )
+    parser.add_argument(
+        "--count-cbar-label",
+        default=None,
+        help="Colorbar label for count maps. Default: Hits [1/cm^2] with --density, otherwise Hits.",
+    )
+    parser.add_argument(
+        "--tracklet-cbar-label",
+        default=None,
+        help="Colorbar label for tracklet maps. Default: Tracklets [1/cm^2] with --density, otherwise Tracklets.",
+    )
+    parser.add_argument("--eff-cbar-label", default="Efficiency", help="Colorbar label for local efficiency map.")
     parser.add_argument(
         "--plot-range",
         nargs=4,
@@ -406,20 +646,54 @@ def main() -> None:
         help="Optional displayed axis range, e.g. --plot-range 0 60 0 160.",
     )
 
-    parser.add_argument("--no-overlay", action="store_true", help="Do not draw the white active-area polygon.")
+    parser.add_argument("--plain-style", action="store_true", help="Use the old simple style with centered titles.")
+    parser.add_argument("--show-title", action="store_true", help="Also show the map title in CMS style.")
+    parser.add_argument("--cms-label", default="CMS", help="Left header label.")
+    parser.add_argument("--cms-extra", default="Preliminary", help="Italic text after the CMS label.")
+    parser.add_argument("--facility-label", default="GIF++", help="Top-right facility label.")
+    parser.add_argument("--cms-fontsize", type=float, default=17.0, help="CMS header font size.")
+    parser.add_argument("--facility-fontsize", type=float, default=13.0, help="Facility header font size.")
+    parser.add_argument(
+        "--cms-annotation",
+        default=DEFAULT_CMS_ANNOTATION,
+        help="Multiline annotation inside the plot. Use quoted text with '\\n' for line breaks.",
+    )
+    parser.add_argument("--no-cms-annotation", action="store_true", help="Hide the inner detector/run annotation.")
+    parser.add_argument("--cms-annotation-fontsize", type=float, default=10.5)
+    parser.add_argument("--cms-annotation-x", type=float, default=0.965)
+    parser.add_argument("--cms-annotation-y", type=float, default=0.955)
+
+    parser.add_argument("--no-overlay", action="store_true", help="Do not draw the active-area polygon.")
     parser.add_argument(
         "--overlay-poly",
         nargs="+",
         type=float,
-        default=[0.0, 0.0, 0.0, 120.0, 30.0, 120.0, 55.0, 0.0, 0.0, 0.0],
-        help="Active-area polygon as x1 y1 x2 y2 ... Default matches the legacy enclosure style.",
+        default=DEFAULT_CMS_OVERLAY_POLY,
+        help="Active-area polygon as x1 y1 x2 y2 ... Default matches the CMS/GIF++ enclosure style.",
     )
-    parser.add_argument("--overlay-color", default="white")
-    parser.add_argument("--overlay-lw", type=float, default=1.2)
-    parser.add_argument("--overlay-alpha", type=float, default=0.85)
+    parser.add_argument("--overlay-color", default="black", help="Active-area polygon color.")
+    parser.add_argument("--overlay-lw", type=float, default=0.9, help="Active-area polygon line width.")
+    parser.add_argument("--overlay-alpha", type=float, default=1.0, help="Active-area polygon alpha.")
+    parser.add_argument(
+        "--mask-zero-counts",
+        action="store_true",
+        help="Mask zero-valued Total/Tracklets bins so they are pure white.",
+    )
+    parser.add_argument(
+        "--mask-zero-eff",
+        action="store_true",
+        help="Mask zero-valued efficiency bins so they are pure white.",
+    )
     parser.add_argument("--legacy-names", action="store_true", help="Use old names such as Total_7kV_.pdf.")
+    return parser
 
+
+def main() -> None:
+    t0 = time.perf_counter()
+    parser = make_parser()
     args = parser.parse_args()
+
+    cms_style = not args.plain_style
 
     formats: List[str] = []
     if not args.no_pdf:
@@ -439,7 +713,7 @@ def main() -> None:
     out_dir = Path(args.out_dir) if args.out_dir else input_dir.parent / "map_plots"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    setup_plot_style(args.dpi)
+    setup_plot_style(args.dpi, cms_style=cms_style)
     stamp(t0, f"Found {len(root_files)} ROOT file(s)")
     stamp(t0, f"Output directory: {out_dir}")
 
@@ -447,65 +721,82 @@ def main() -> None:
     overlay = not args.no_overlay
     total_written = 0
 
+    count_cmap = args.cmap if args.cmap is not None else args.count_cmap
+    eff_cmap = args.cmap if args.cmap is not None else args.eff_cmap
+
+    count_cbar_label = args.count_cbar_label
+    tracklet_cbar_label = args.tracklet_cbar_label
+    if count_cbar_label is None:
+        count_cbar_label = r"Hits [1/cm$^{2}$]" if args.density else "Hits"
+    if tracklet_cbar_label is None:
+        tracklet_cbar_label = r"Tracklets [1/cm$^{2}$]" if args.density else "Tracklets"
+
+    cms_annotation = "" if args.no_cms_annotation else args.cms_annotation.replace("\\n", "\n")
+
     for root_path in root_files:
         meta = parse_file_meta(root_path)
         stamp(t0, f"Reading {root_path}")
         maps = read_maps(root_path, args.h_total, args.h_tracklet, args.h_eff)
 
+        total_values = maybe_density(maps.total, maps.x_edges, maps.y_edges, enabled=args.density)
+        tracklet_values = maybe_density(maps.tracklet, maps.x_edges, maps.y_edges, enabled=args.density)
+        eff_values = maps.eff
+
         target_dir = output_subdir(out_dir, meta, args.flat)
         target_dir.mkdir(parents=True, exist_ok=True)
         name_tag = build_name_tag(meta, args.legacy_names)
 
-        regime_note = f" ({meta.regime})" if meta.regime else ""
         hv_note = meta.hv_label_for_title
 
         count_vmax = args.count_vmax
         if count_vmax is None:
             # Use a common count scale for denominator and numerator within
             # the same ROOT file, making them directly comparable.
-            count_vmax = max(finite_max(maps.total), finite_max(maps.tracklet))
+            count_vmax = max(finite_max(total_values), finite_max(tracklet_values))
 
         map_specs = [
             (
-                maps.total,
+                total_values,
                 "Total hits",
-                f"Total_{name_tag}",
+                count_cbar_label,
                 target_dir / f"Total_{name_tag}",
                 0.0,
                 count_vmax,
+                count_cmap,
+                args.mask_zero_counts,
             ),
             (
-                maps.tracklet,
+                tracklet_values,
                 "Reconstructed tracklets",
-                f"Tracklets_{name_tag}",
+                tracklet_cbar_label,
                 target_dir / f"Tracklets_{name_tag}",
                 0.0,
                 count_vmax,
+                count_cmap,
+                args.mask_zero_counts,
             ),
             (
-                maps.eff,
+                eff_values,
                 "Local Efficiency",
-                f"Local_Efficiency_{name_tag}",
+                args.eff_cbar_label,
                 target_dir / f"Local_Efficiency_{name_tag}",
                 0.0,
                 args.eff_vmax,
+                eff_cmap,
+                args.mask_zero_eff,
             ),
         ]
 
-        for values, title, cbar_label, out_base, vmin, vmax in map_specs:
-            title_full = title
-            # Keep the legacy title clean, but still record regime/HV in the
-            # file and colorbar labels.  Uncomment the next line if desired.
-            # title_full = f"{title} - {hv_note}{regime_note}"
+        for values, title, cbar_label, out_base, vmin, vmax, cmap, mask_zeros in map_specs:
             written = plot_one_map(
                 values=values,
                 x_edges=maps.x_edges,
                 y_edges=maps.y_edges,
                 out_base=out_base,
-                title=title_full,
+                title=title,
                 cbar_label=cbar_label,
                 formats=formats,
-                cmap=args.cmap,
+                cmap=cmap,
                 vmin=vmin,
                 vmax=vmax,
                 plot_range=plot_range,
@@ -514,6 +805,18 @@ def main() -> None:
                 overlay_color=args.overlay_color,
                 overlay_lw=args.overlay_lw,
                 overlay_alpha=args.overlay_alpha,
+                cms_style=cms_style,
+                mask_zeros=mask_zeros,
+                cms_label=args.cms_label,
+                cms_extra=args.cms_extra,
+                facility_label=args.facility_label,
+                cms_annotation=cms_annotation,
+                cms_annotation_fontsize=args.cms_annotation_fontsize,
+                cms_annotation_x=args.cms_annotation_x,
+                cms_annotation_y=args.cms_annotation_y,
+                cms_fontsize=args.cms_fontsize,
+                facility_fontsize=args.facility_fontsize,
+                show_plain_title_in_cms_style=args.show_title,
             )
             total_written += len(written)
             for out in written:
