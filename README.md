@@ -323,6 +323,14 @@ In practice this means:
 
 ------------------------------------------------------------------------
 
+## 8) The `rpc_plot_efficiency_maps.py` reads the standard ROOT map histograms h_total, h_tracklet, and h_eff,
+which are the map outputs described in your repository workflow. It reproduces the three map-style figures: Total hits,
+Reconstructed tracklets and Local Efficiency, matching the visual structure of the enclosed PDFs.
+
+
+
+------------------------------------------------------------------------
+
 ## 9) Synthetic Dataset Generator
 
 ``` bash
