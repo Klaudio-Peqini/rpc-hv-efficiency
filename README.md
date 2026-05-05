@@ -331,33 +331,40 @@ Reconstructed tracklets and Local Efficiency, matching the visual structure of t
 
 Use it like this from the repository root:
 
+```
 python3 src/rpc_plot_efficiency_maps.py \
   --input-dir out_dynamic_regime/maps
+```
 
-It will write outputs by default to:
-
-out_dynamic_regime/map_plots/
+It will write outputs by default to `out_dynamic_regime/map_plots/`
 
 For example:
 
+```
 out_dynamic_regime/map_plots/HV6_beam/
   Total_7kV_HV6_beam.pdf
   Tracklets_7kV_HV6_beam.pdf
   Local_Efficiency_7kV_HV6_beam.pdf
+```
 
 To also produce PNG files:
 
+```
 python3 src/rpc_plot_efficiency_maps.py \
   --input-dir out_dynamic_regime/maps \
   --png
+```
 
 To reproduce the older display range from the attached examples, where the Y-axis reaches 160 cm:
 
+```
 python3 src/rpc_plot_efficiency_maps.py \
   --input-dir out_dynamic_regime/maps \
   --plot-range 0 60 0 160
+```
 
-I also forced the Matplotlib backend to Agg, so the script should avoid the previous Qt/Wayland warning during batch plotting. The Δx, Δy, θx, θy diagnostic PDFs cannot be reconstructed from the map ROOT files alone unless those residual histograms or CSV arrays are also saved by the producer.
+The Δx, Δy, θx, θy diagnostic PDFs cannot be reconstructed from the map ROOT files alone unless
+those residual histograms or CSV arrays are also saved by the producer.
 
 ------------------------------------------------------------------------
 
