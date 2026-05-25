@@ -23,15 +23,32 @@ It produces, for each HV point:
     -   `h_total` (denominator: eligible events)
     -   `h_tracklet` (numerator: matched events)
     -   `h_eff` (efficiency map)
-2.  **JSON summaries** with ROI and global efficiencies + binomial
+2.  **Diagnostic ROOT histograms** for residuals and angles:
+    -   `h_dx`, `h_dy`, `h_dt`
+    -   `h_dx_dy`
+    -   `h_theta_x`, `h_theta_y`, `h_theta`
+    -   `h_theta_x_theta_y`
+    -   candidate-level residual histograms, when enabled in the producer
+3.  **JSON summaries** with ROI and global efficiencies + binomial
     errors
-3.  **Efficiency vs HV plots** (simple and CMS/RPC-group style)
-4.  **3D tracklet visualizations** showing reconstructed trajectories
+4.  **Optional per-tracklet diagnostic tables**:
+    -   CSV output with matched-tracklet quantities
+    -   NDJSON output with event-level diagnostic information
+5.  **Efficiency vs HV plots** (simple and CMS/RPC-group style)
+6.  **Working-point validation plots** near the fitted WP:
+    -   beam/local efficiency map
+    -   `Δx`, `Δy`, `θx`, `θy` distributions
+    -   `θx` vs `θy` 2D angular map
+    -   tracklet-level correlation matrix
+7.  **3D tracklet visualizations** showing reconstructed trajectories
     through all chambers
-5.  **Automatic cut estimation** for `Δx`, `Δy`, `Δt` and optional
+8.  **Automatic cut estimation** for `Δx`, `Δy`, `Δt` and optional
     angular consistency, evaluated per working point when desired
-6.  **Regime-aware analysis** for `normal` and `beam` running
+9.  **Regime-aware analysis** for `normal` and `beam` running
     conditions
+10. **BX-tree-aware analysis**, for example `events`, `events_36BX`,
+    `events_24BX`, `events_18BX`, or `events_12BX`, if those TTrees are
+    present in the input `data.root` files
 
 ------------------------------------------------------------------------
 
@@ -54,7 +71,9 @@ cd rpc-hv-efficiency
     │  ├─ rpc_make_eff_summary.py
     │  ├─ rpc_efficiency_vs_hv.py
     │  ├─ rpc_cms_style_eff_plot.py
-    │  └─ rpc_plot_tracklets_3d.py
+    │  ├─ rpc_plot_efficiency_maps.py
+    │  ├─ rpc_plot_tracklets_3d.py
+    │  └─ rpc_wp_validation_plots.py
     ├─ configs/
     │  ├─ beam_roi.json
     │  └─ default_cuts.json
@@ -84,7 +103,11 @@ Test PyROOT:
 python3 -c "import ROOT; print(ROOT.gROOT.GetVersion())"
 ```
 
-### Install dependencies
+### Python dependencies
+
+The usual analysis and plotting workflow requires packages such as
+`numpy`, `matplotlib`, and `pandas`, in addition to ROOT/PyROOT.
+Install the repository dependencies with:
 
 ``` bash
 python3 -m pip install -r requirements.txt
@@ -123,9 +146,97 @@ from the natural background case. For this reason the pipeline supports:
 This is useful both for bookkeeping and for applying distinct cut
 estimation, ROI handling, and output naming.
 
+### 3.1 Residuals and angular diagnostics
+
+For a matched anchor-target pair, the residuals are defined as:
+
+-   `dx = xT - x_pred`, after the alignment correction used by the
+    producer
+-   `dy = yT - y_pred`, after the alignment correction used by the
+    producer
+-   `dt`, the timing residual used in the matching condition
+
+For a two-chamber diagnostic, the pair angles are:
+
+``` text
+θx = atan(dx / Δz)
+θy = atan(dy / Δz)
+θ  = atan(sqrt(dx² + dy²) / |Δz|)
+```
+
+For three- and four-chamber modes, the more physical angular estimate is
+obtained from the fitted reference track:
+
+``` text
+x(z) = ax z + bx
+y(z) = ay z + by
+θx = atan(ax)
+θy = atan(ay)
+θ  = atan(sqrt(ax² + ay²))
+```
+
+These quantities are intended as **diagnostic validation variables** near
+the working point. They help assess residual alignment, angular spread,
+tracklet quality, and possible correlations between geometry, timing,
+and reconstructed tracklets.
+
 ------------------------------------------------------------------------
 
-## 4) 3D Tracklet Visualization
+## 4) Input TTree selection and BX studies
+
+By default, the analysis reads the TTree named:
+
+``` text
+events
+```
+
+Some `data.root` files may also contain BX-specific TTrees, for example:
+
+``` text
+events_36BX
+events_24BX
+events_18BX
+events_12BX
+```
+
+The pipeline and producer support selecting the input tree with:
+
+``` bash
+--tree events_36BX
+```
+
+Example for a 36BX beam analysis:
+
+``` bash
+python3 src/rpc_hv_pipeline.py \
+  --chambers Ch201 Ch202 \
+  --producer src/rpc_tracklet_efficiency.py \
+  --producer-mode optionc \
+  --summarizer src/rpc_make_eff_summary.py \
+  --hvscript src/rpc_efficiency_vs_hv.py \
+  --z 0 100 \
+  --tree events_36BX \
+  --anchor-index 0 \
+  --target-index 1 \
+  --hit-mode centroid \
+  --require-ncluster-eq1 \
+  --regime beam \
+  --out-dir out_dynamic_regime_36BX \
+  --fit
+```
+
+Use a separate output directory for each tree or BX selection to avoid
+mixing results:
+
+``` text
+out_dynamic_regime/
+out_dynamic_regime_36BX/
+out_dynamic_regime_24BX/
+```
+
+------------------------------------------------------------------------
+
+## 5) 3D Tracklet Visualization
 
 The script:
 
@@ -133,7 +244,7 @@ The script:
 
 provides a full 3D geometrical visualization of reconstructed tracklets across all chambers.
 
-### 4.1 What the script does
+### 5.1 What the script does
 
 For each event passing the matching criteria:
 
@@ -152,7 +263,7 @@ This allows:
 - Identification of outlier or mismatched tracklets
 - Presentation-ready detector visualization
 
-### 4.2 Geometry Requirements
+### 5.2 Geometry Requirements
 
 You must provide:
 
@@ -218,9 +329,13 @@ python3 src/rpc_plot_tracklets_3d.py \
 
 ------------------------------------------------------------------------
 
-## 5) Running 3-Chamber Pipeline
+## 6) Running the HV Pipeline
 
-### Fixed-cut mode
+The same pipeline supports 2-, 3-, and 4-chamber studies. The number of
+input chamber directories must match the number of z positions given with
+`--z`.
+
+### 6.1 Fixed-cut mode
 
 ``` bash
 python3 src/rpc_hv_pipeline.py \
@@ -241,7 +356,7 @@ python3 src/rpc_hv_pipeline.py \
   --fit
 ```
 
-### Dynamic-cut mode with regime selection
+### 6.2 Dynamic-cut mode with regime selection
 
 ``` bash
 python3 src/rpc_hv_pipeline.py \
@@ -262,7 +377,7 @@ python3 src/rpc_hv_pipeline.py \
   --fit
 ```
 
-### Using precomputed cut JSON
+### 6.3 Using precomputed cut JSON
 
 ``` bash
 python3 src/rpc_hv_pipeline.py \
@@ -280,9 +395,50 @@ python3 src/rpc_hv_pipeline.py \
   --fit
 ```
 
+### 6.4 Running with diagnostic CSV/NDJSON output
+
+For approval studies, WP validation, angle plots, and correlation
+matrices, rerun the analysis with:
+
+``` bash
+--write-csv --write-ndjson
+```
+
+Example for a 36BX beam scan:
+
+``` bash
+python3 src/rpc_hv_pipeline.py \
+  --chambers Ch201 Ch202 \
+  --producer src/rpc_tracklet_efficiency.py \
+  --producer-mode optionc \
+  --summarizer src/rpc_make_eff_summary.py \
+  --hvscript src/rpc_efficiency_vs_hv.py \
+  --z 0 100 \
+  --tree events_36BX \
+  --anchor-index 0 \
+  --target-index 1 \
+  --hit-mode centroid \
+  --require-ncluster-eq1 \
+  --regime beam \
+  --out-dir out_dynamic_regime_36BX_diag \
+  --fit \
+  --write-csv \
+  --write-ndjson
+```
+
+This produces, in addition to the usual map ROOT files and JSON
+summaries:
+
+``` text
+out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv
+out_dynamic_regime_36BX_diag/maps/tracklets_HV6_beam.ndjson
+```
+
+The exact HV tag depends on the processed HV point.
+
 ------------------------------------------------------------------------
 
-## 6) Automatic Cut Estimation
+## 7) Automatic Cut Estimation
 
 The script:
 
@@ -307,9 +463,9 @@ This helps avoid using a single fixed set of cuts when:
 
 ------------------------------------------------------------------------
 
-## 7) Beam vs Normal Regimes
+## 8) Beam vs Normal Regimes
 
-The repository now supports two analysis regimes:
+The repository supports two analysis regimes:
 
 -   **normal**: intended for natural background / broad detector acceptance studies
 -   **beam**: intended for localized beam-region studies and ROI-centered analyses
@@ -323,70 +479,201 @@ In practice, this means:
 
 ------------------------------------------------------------------------
 
-## 8) Creating relevant plots
+## 9) Diagnostic ROOT histograms and per-tracklet tables
 
-The `rpc_plot_efficiency_maps.py` reads the standard ROOT map histograms h_total, h_tracklet, and h_eff,
-which are the map outputs described in your repository workflow. It reproduces the three map-style figures: Total hits,
-Reconstructed tracklets and Local Efficiency, matching the visual structure of the enclosed PDFs.
+The updated producer keeps the standard map output unchanged:
 
-Use it like this from the repository root to create the png files:
-
+``` text
+h_total
+h_tracklet
+h_eff
 ```
-python3 rpc_plot_efficiency_maps.py \
+
+It also writes diagnostic histograms useful for WP validation:
+
+``` text
+h_dx_raw_candidate
+h_dy_raw_candidate
+h_dx_raw_dy_raw_candidate
+h_dx_candidate
+h_dy_candidate
+h_dt_candidate
+h_dx_dy_candidate
+h_dx
+h_dy
+h_dt
+h_dx_dy
+h_theta_x
+h_theta_y
+h_theta
+h_theta_x_theta_y
+```
+
+The matched-tracklet histograms are filled after the matching cuts are
+applied. The candidate histograms are useful for inspecting the residual
+sample before the final matching decision.
+
+When the pipeline is run with:
+
+``` bash
+--write-csv --write-ndjson
+```
+
+the per-tracklet CSV can include quantities such as:
+
+``` text
+xA, yA, x_pred, y_pred, xT, yT,
+dx_raw, dy_raw, dx, dy, dt,
+dx0, dy0,
+theta_x_deg, theta_y_deg, theta_deg
+```
+
+These columns are the preferred input for the numerical
+tracklet-correlation matrix.
+
+To check that the diagnostic histograms are present:
+
+``` bash
+root -l out_dynamic_regime_36BX_diag/maps/tracklets_efficiency_HV6_beam.root
+```
+
+Inside ROOT:
+
+``` cpp
+.ls
+```
+
+------------------------------------------------------------------------
+
+## 10) Creating relevant plots
+
+### 10.1 CMS-like efficiency curve and fitted WP
+
+After the HV pipeline has produced the JSON summaries, the CMS-like
+curve can be created with:
+
+``` bash
+mkdir -p out_dynamic_regime_36BX/plots
+
+python3 src/rpc_cms_style_eff_plot.py \
+  --series "RxLW = 12 BX::out_dynamic_regime_36BX/summaries/summary_HV*beam*.json" \
+  --textbox $'chamber 202 36BX\n1.4mm double gap iRPC\nFEB v2.3 Petiroc 2C\nthreshold ~ 40fC (dac10)' \
+  --out out_dynamic_regime_36BX/plots/eff_cms_style_36BX_beam.png \
+  --wp-offset-v 150 \
+  --textbox-x 0.02 \
+  --textbox-y 0.52
+```
+
+Use `--textbox-x` and `--textbox-y` to move the annotation block if it
+overlaps the efficiency curve.
+
+### 10.2 Map plots from ROOT histograms
+
+The `rpc_plot_efficiency_maps.py` reads the standard ROOT map histograms
+`h_total`, `h_tracklet`, and `h_eff`. It reproduces the three map-style
+figures:
+
+- Total hits
+- Reconstructed tracklets
+- Local Efficiency
+
+Use it from the repository root:
+
+``` bash
+python3 src/rpc_plot_efficiency_maps.py \
   --input-dir out_dynamic_regime/maps \
   --plot-range 0 60 0 160 \
   --png
 ```
 
-It will write outputs by default to `out_dynamic_regime/map_plots/`
+It writes outputs by default to:
+
+``` text
+out_dynamic_regime/map_plots/
+```
 
 For example:
 
-```
+``` text
 out_dynamic_regime/map_plots/HV6_beam/
   Total_7kV_HV6_beam.pdf
   Tracklets_7kV_HV6_beam.pdf
   Local_Efficiency_7kV_HV6_beam.pdf
 ```
 
-To also produce PNG files:
+To keep only PDF output, omit `--png`:
 
-```
-python3 src/rpc_plot_efficiency_maps.py \
-  --input-dir out_dynamic_regime/maps \
-  --png
-```
-If one wants to keep only PDF output, omit --png:
-
-```
-python3 rpc_plot_efficiency_maps.py \
-  --input-dir out_dynamic_regime/maps \
-  --plot-range 0 60 0 160
-```
-
-To reproduce the older display range from the attached examples, where the Y-axis reaches 160 cm:
-
-```
+``` bash
 python3 src/rpc_plot_efficiency_maps.py \
   --input-dir out_dynamic_regime/maps \
   --plot-range 0 60 0 160
 ```
 
-The Δx, Δy, θx, θy diagnostic PDFs cannot be reconstructed from the map ROOT files alone unless
-the producer also saves those residual histograms or CSV arrays.
+The plotting script also supports CMS/GIF++-style annotation. Example:
 
-There is also the option to tune the annotation without editing the script, for example:
-
-```
-python3 rpc_plot_efficiency_maps.py \
+``` bash
+python3 src/rpc_plot_efficiency_maps.py \
   --input-dir out_dynamic_regime/maps \
   --plot-range 0 60 0 160 \
-  --cms-annotation "GIF++ Test Beam November 2025\n1.4 mm double gap iRPC\nFEB v2.3 Petiroc 2C\nthreshold ~ 40 fC\n\nGIF++ source off"
+  --cms-annotation "GIF++ Test Beam November 2025\n1.4 mm double gap iRPC\nFEB v2.3 Petiroc 2C\nthreshold ~ 40 fC\n\nGIF++ source off" \
+  --png
 ```
+
+### 10.3 Working-point validation plots
+
+For approval packages, choose the HV point closest to the fitted working
+point and generate the validation plots from the diagnostic ROOT file and
+the per-tracklet CSV.
+
+Example for HV6 beam:
+
+``` bash
+mkdir -p out_dynamic_regime_36BX_diag/plots/wp_validation/HV6_beam
+
+python3 src/rpc_wp_validation_plots.py \
+  --root out_dynamic_regime_36BX_diag/maps/tracklets_efficiency_HV6_beam.root \
+  --csv out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv \
+  --out-dir out_dynamic_regime_36BX_diag/plots/wp_validation/HV6_beam \
+  --label $'Chamber 202, 36BX\n1.4 mm double gap iRPC\nFEB v2.3 Petiroc 2C\nthreshold ~ 40 fC' \
+  --png \
+  --pdf
+```
+
+This produces:
+
+``` text
+03_delta_x_distribution.png/pdf
+04_delta_y_distribution.png/pdf
+05_theta_x_distribution.png/pdf
+06_theta_y_distribution.png/pdf
+07_theta_x_vs_theta_y_2d.png/pdf
+08_tracklet_correlation_matrix.png/pdf
+08_tracklet_correlation_matrix.csv
+```
+
+These plots directly address the usual WP validation request:
+
+``` text
+Fit obtain WP, show beam profile for HV close to WP,
+and show the correlation matrix and angles.
+```
+
+### 10.4 Suggested approval-plot order
+
+A compact approval package can contain:
+
+1. CMS-like efficiency vs HV curve with the fitted WP.
+2. Beam profile or local efficiency map at the HV closest to WP.
+3. `Δx` distribution at the HV closest to WP.
+4. `Δy` distribution at the HV closest to WP.
+5. `θx` distribution.
+6. `θy` distribution.
+7. `θx` vs `θy` 2D map.
+8. Tracklet-level correlation matrix.
 
 ------------------------------------------------------------------------
 
-## 9) Synthetic Dataset Generator
+## 11) Synthetic Dataset Generator
 
 ``` bash
 python3 synthetic/make_synthetic_rpc_hvscan.py \
@@ -398,14 +685,30 @@ python3 synthetic/make_synthetic_rpc_hvscan.py \
 
 ------------------------------------------------------------------------
 
-## 10) Troubleshooting
+## 12) Troubleshooting
 
 -   Ensure PyROOT is available.
 -   Verify TTree name (`--tree`, default `events`).
+-   For BX-specific studies, check that the selected tree exists, for
+    example `events_36BX`.
 -   Confirm correct `HV*/data.root` structure.
 -   Check geometry (`--z`) and tolerances.
--   If beam and normal outputs look unexpectedly similar, verify whether the producer stage is truly using regime-aware selections or only regime-aware labels.
--   If dynamic cuts appear fixed, check whether `--auto-cuts`, `--auto-cuts-script`, or `--cuts-json` are being passed correctly by the pipeline.
+-   If beam and normal outputs look unexpectedly similar, verify whether
+    the producer stage is truly using regime-aware selections or only
+    regime-aware labels.
+-   If dynamic cuts appear fixed, check whether `--auto-cuts`,
+    `--auto-cuts-script`, or `--cuts-json` are being passed correctly by
+    the pipeline.
+-   If the WP validation script cannot find `h_dx`, `h_dy`,
+    `h_theta_x`, or `h_theta_y`, rerun the analysis with the updated
+    producer so that the diagnostic ROOT histograms are written.
+-   If the correlation matrix cannot be produced, rerun the pipeline with
+    `--write-csv`. The final map ROOT files alone do not contain enough
+    event-by-event information for a full tracklet-level correlation
+    matrix.
+-   If a plot command fails because an output directory does not exist,
+    create it with `mkdir -p` or use a script option that creates output
+    directories automatically.
 
 ------------------------------------------------------------------------
 
