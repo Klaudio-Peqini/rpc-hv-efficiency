@@ -398,11 +398,16 @@ python3 src/rpc_hv_pipeline.py \
 ### 6.4 Running with diagnostic CSV/NDJSON output
 
 For approval studies, WP validation, angle plots, and correlation
-matrices, rerun the analysis with:
+matrices, rerun the analysis with the diagnostic table switches:
 
 ``` bash
 --write-csv --write-ndjson
 ```
+
+These options are important because the final ROOT map file contains
+histograms, while the **correlation matrix requires event-by-event or
+tracklet-by-tracklet quantities**. The CSV file is therefore the main
+input for the numerical correlation matrix.
 
 Example for a 36BX beam scan:
 
@@ -426,15 +431,92 @@ python3 src/rpc_hv_pipeline.py \
   --write-ndjson
 ```
 
-This produces, in addition to the usual map ROOT files and JSON
-summaries:
+During each HV point, the producer first writes local diagnostic files:
+
+``` text
+tracklets_full.csv
+tracklets.ndjson
+```
+
+The HV pipeline then moves and renames them into the `maps/` directory:
 
 ``` text
 out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv
 out_dynamic_regime_36BX_diag/maps/tracklets_HV6_beam.ndjson
 ```
 
-The exact HV tag depends on the processed HV point.
+The exact HV tag depends on the processed HV point. For example, `HV6`
+may be replaced by `HV5`, `HV7`, etc.
+
+The CSV is the recommended file for:
+
+- checking event-by-event residuals,
+- checking corrected and raw `Δx`, `Δy`, and `Δt`,
+- plotting or recomputing `θx`, `θy`, and `θ`,
+- creating the tracklet-level correlation matrix.
+
+The NDJSON file is useful when one wants a more verbose event-level log
+that can be inspected line by line.
+
+### 6.5 Direct CSV generation for one HV point
+
+If you do not want to rerun the full HV pipeline, you can run the
+producer directly for a single HV point and ask it to write the CSV and
+NDJSON diagnostics:
+
+``` bash
+python3 src/rpc_tracklet_efficiency.py \
+  --files Ch201/HV6/data.root Ch202/HV6/data.root \
+  --z 0 100 \
+  --tree events_36BX \
+  --tag HV6_beam \
+  --anchor-index 0 \
+  --target-index 1 \
+  --hit-mode centroid \
+  --require-ncluster-eq1 \
+  --regime beam \
+  --tol-x 7.0 \
+  --tol-y 20.0 \
+  --tol-t 3.0 \
+  --write-csv \
+  --write-ndjson
+```
+
+This direct command writes in the current directory:
+
+``` text
+tracklets_efficiency_HV6_beam.root
+tracklets_full.csv
+tracklets.ndjson
+```
+
+For repository-style bookkeeping, move or rename them consistently, for
+example:
+
+``` bash
+mkdir -p out_dynamic_regime_36BX_diag/maps
+mv tracklets_efficiency_HV6_beam.root \
+   out_dynamic_regime_36BX_diag/maps/tracklets_efficiency_HV6_beam.root
+mv tracklets_full.csv \
+   out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv
+mv tracklets.ndjson \
+   out_dynamic_regime_36BX_diag/maps/tracklets_HV6_beam.ndjson
+```
+
+To check that the CSV exists and contains the expected columns:
+
+``` bash
+head -n 1 out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv
+```
+
+Typical columns include:
+
+``` text
+xA, yA, x_pred, y_pred, xT, yT,
+dx_raw, dy_raw, dx, dy, dt,
+dx0, dy0,
+theta_x_deg, theta_y_deg, theta_deg
+```
 
 ------------------------------------------------------------------------
 
@@ -489,7 +571,7 @@ h_tracklet
 h_eff
 ```
 
-It also writes diagnostic histograms useful for WP validation:
+It also writes diagnostic ROOT histograms useful for WP validation:
 
 ``` text
 h_dx_raw_candidate
@@ -510,8 +592,28 @@ h_theta_x_theta_y
 ```
 
 The matched-tracklet histograms are filled after the matching cuts are
-applied. The candidate histograms are useful for inspecting the residual
-sample before the final matching decision.
+applied. The candidate histograms are filled before the final matching
+condition, and are useful for inspecting the residual sample before
+accepting the final matched tracklets.
+
+The diagnostic ROOT histograms are sufficient for approval-style plots
+such as:
+
+``` text
+Δx distribution
+Δy distribution
+Δt distribution
+θx distribution
+θy distribution
+θ distribution
+θx vs θy map
+Δx vs Δy map
+```
+
+However, the ROOT histograms alone are **not sufficient** for a full
+tracklet-level correlation matrix, because a correlation matrix requires
+event-by-event values in the same row. For that reason, the analysis
+must also write the per-tracklet CSV.
 
 When the pipeline is run with:
 
@@ -529,7 +631,9 @@ theta_x_deg, theta_y_deg, theta_deg
 ```
 
 These columns are the preferred input for the numerical
-tracklet-correlation matrix.
+tracklet-correlation matrix. Each row corresponds to one matched
+tracklet, so the correlations are computed between variables from the
+same reconstructed object.
 
 To check that the diagnostic histograms are present:
 
@@ -541,6 +645,37 @@ Inside ROOT:
 
 ``` cpp
 .ls
+```
+
+You should see at least:
+
+``` text
+h_dx
+h_dy
+h_theta_x
+h_theta_y
+h_theta_x_theta_y
+```
+
+To check that the diagnostic CSV was created:
+
+``` bash
+ls out_dynamic_regime_36BX_diag/maps/tracklets_full_HV*_beam.csv
+head -n 1 out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv
+```
+
+A quick check of the number of matched tracklets stored in the CSV is:
+
+``` bash
+python3 - <<'PY'
+import pandas as pd
+csv = "out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv"
+df = pd.read_csv(csv)
+print("CSV:", csv)
+print("rows / matched tracklets:", len(df))
+print("columns:")
+print("  " + "\n  ".join(df.columns))
+PY
 ```
 
 ------------------------------------------------------------------------
@@ -651,6 +786,10 @@ This produces:
 08_tracklet_correlation_matrix.csv
 ```
 
+The first five plots are produced from the diagnostic ROOT histograms.
+The correlation matrix is produced from the per-tracklet CSV supplied
+with `--csv`.
+
 These plots directly address the usual WP validation request:
 
 ``` text
@@ -658,7 +797,70 @@ Fit obtain WP, show beam profile for HV close to WP,
 and show the correlation matrix and angles.
 ```
 
-### 10.4 Suggested approval-plot order
+### 10.4 Creating the tracklet-level correlation matrix
+
+The tracklet-level correlation matrix is created from the CSV file, not
+from the final map histograms. The reason is that the matrix requires the
+variables to be available row-by-row for each matched tracklet.
+
+For the HV point closest to the fitted WP, use the CSV from the same HV
+and regime as the ROOT diagnostic file:
+
+``` text
+ROOT: out_dynamic_regime_36BX_diag/maps/tracklets_efficiency_HV6_beam.root
+CSV : out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv
+```
+
+The simplest command is the full WP-validation command above, because it
+creates both the angle plots and the correlation matrix:
+
+``` bash
+python3 src/rpc_wp_validation_plots.py \
+  --root out_dynamic_regime_36BX_diag/maps/tracklets_efficiency_HV6_beam.root \
+  --csv out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv \
+  --out-dir out_dynamic_regime_36BX_diag/plots/wp_validation/HV6_beam \
+  --label $'Chamber 202, 36BX\n1.4 mm double gap iRPC\nFEB v2.3 Petiroc 2C\nthreshold ~ 40 fC' \
+  --png \
+  --pdf
+```
+
+The matrix files are:
+
+``` text
+out_dynamic_regime_36BX_diag/plots/wp_validation/HV6_beam/08_tracklet_correlation_matrix.png
+out_dynamic_regime_36BX_diag/plots/wp_validation/HV6_beam/08_tracklet_correlation_matrix.pdf
+out_dynamic_regime_36BX_diag/plots/wp_validation/HV6_beam/08_tracklet_correlation_matrix.csv
+```
+
+The plotted correlation coefficient is the Pearson coefficient. Typical
+columns used are:
+
+``` text
+xA, yA, x_pred, y_pred, xT, yT,
+dx_raw, dy_raw, dx, dy, dt,
+theta_x_deg, theta_y_deg, theta_deg
+```
+
+Interpretation guide:
+
+- strong `dx`--`xA` or `dy`--`yA` correlations can indicate residual
+  geometry or alignment effects;
+- strong `dt`--position correlations can indicate timing or readout
+  effects across the chamber plane;
+- `theta_x_deg` and `theta_y_deg` describe the angular spread of the
+  accepted tracklets near the WP;
+- a stable validation sample should not show unexpected large
+  correlations between residuals, timing, and position variables.
+
+To inspect the numerical matrix directly:
+
+``` bash
+column -s, -t < \
+  out_dynamic_regime_36BX_diag/plots/wp_validation/HV6_beam/08_tracklet_correlation_matrix.csv \
+  | less -S
+```
+
+### 10.5 Suggested approval-plot order
 
 A compact approval package can contain:
 
