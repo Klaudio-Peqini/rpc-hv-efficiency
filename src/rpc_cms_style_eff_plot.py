@@ -98,6 +98,9 @@ def main():
     ap.add_argument("--ymax", type=float, default=110.0)
     ap.add_argument("--wp-frac", type=float, default=0.95)
     ap.add_argument("--wp-offset-v", type=float, default=100.0)
+    ap.add_argument("--textbox-x", type=float, default=0.10, help="Textbox x-position in axes coordinates.")
+    ap.add_argument("--textbox-y", type=float, default=0.55, help="Textbox y-position in axes coordinates.")
+    ap.add_argument("--textbox-fontsize", type=float, default=14, help="Textbox font size.")
 
     args = ap.parse_args()
 
@@ -117,8 +120,7 @@ def main():
     ax.text(0.98, 1.03, args.cms_right, transform=ax.transAxes,
             fontsize=18, ha="right", va="bottom")
 
-    ax.text(0.10, 0.55, args.textbox, transform=ax.transAxes,
-            fontsize=14, va="top", ha="left")
+    ax.text(args.textbox_x, args.textbox_y, args.textbox, transform=ax.transAxes, fontsize=args.textbox_fontsize, va="top", ha="left")
 
     for spec in args.series:
         if "::" not in spec:
