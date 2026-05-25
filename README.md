@@ -425,7 +425,7 @@ python3 src/rpc_hv_pipeline.py \
   --hit-mode centroid \
   --require-ncluster-eq1 \
   --regime beam \
-  --out-dir out_dynamic_regime_36BX_diag \
+  --out-dir out_dynamic_regime_36BX \
   --fit \
   --write-csv \
   --write-ndjson
@@ -441,8 +441,8 @@ tracklets.ndjson
 The HV pipeline then moves and renames them into the `maps/` directory:
 
 ``` text
-out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv
-out_dynamic_regime_36BX_diag/maps/tracklets_HV6_beam.ndjson
+out_dynamic_regime_36BX/maps/tracklets_full_HV6_beam.csv
+out_dynamic_regime_36BX/maps/tracklets_HV6_beam.ndjson
 ```
 
 The exact HV tag depends on the processed HV point. For example, `HV6`
@@ -494,19 +494,19 @@ For repository-style bookkeeping, move or rename them consistently, for
 example:
 
 ``` bash
-mkdir -p out_dynamic_regime_36BX_diag/maps
+mkdir -p out_dynamic_regime_36BX/maps
 mv tracklets_efficiency_HV6_beam.root \
-   out_dynamic_regime_36BX_diag/maps/tracklets_efficiency_HV6_beam.root
+   out_dynamic_regime_36BX/maps/tracklets_efficiency_HV6_beam.root
 mv tracklets_full.csv \
-   out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv
+   out_dynamic_regime_36BX/maps/tracklets_full_HV6_beam.csv
 mv tracklets.ndjson \
-   out_dynamic_regime_36BX_diag/maps/tracklets_HV6_beam.ndjson
+   out_dynamic_regime_36BX/maps/tracklets_HV6_beam.ndjson
 ```
 
 To check that the CSV exists and contains the expected columns:
 
 ``` bash
-head -n 1 out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv
+head -n 1 out_dynamic_regime_36BX/maps/tracklets_full_HV6_beam.csv
 ```
 
 Typical columns include:
@@ -638,7 +638,7 @@ same reconstructed object.
 To check that the diagnostic histograms are present:
 
 ``` bash
-root -l out_dynamic_regime_36BX_diag/maps/tracklets_efficiency_HV6_beam.root
+root -l out_dynamic_regime_36BX/maps/tracklets_efficiency_HV6_beam.root
 ```
 
 Inside ROOT:
@@ -660,8 +660,8 @@ h_theta_x_theta_y
 To check that the diagnostic CSV was created:
 
 ``` bash
-ls out_dynamic_regime_36BX_diag/maps/tracklets_full_HV*_beam.csv
-head -n 1 out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv
+ls out_dynamic_regime_36BX/maps/tracklets_full_HV*_beam.csv
+head -n 1 out_dynamic_regime_36BX/maps/tracklets_full_HV6_beam.csv
 ```
 
 A quick check of the number of matched tracklets stored in the CSV is:
@@ -669,7 +669,7 @@ A quick check of the number of matched tracklets stored in the CSV is:
 ``` bash
 python3 - <<'PY'
 import pandas as pd
-csv = "out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv"
+csv = "out_dynamic_regime_36BX/maps/tracklets_full_HV6_beam.csv"
 df = pd.read_csv(csv)
 print("CSV:", csv)
 print("rows / matched tracklets:", len(df))
@@ -763,12 +763,12 @@ the per-tracklet CSV.
 Example for HV6 beam:
 
 ``` bash
-mkdir -p out_dynamic_regime_36BX_diag/plots/wp_validation/HV6_beam
+mkdir -p out_dynamic_regime_36BX/plots/wp_validation/HV6_beam
 
 python3 src/rpc_wp_validation_plots.py \
-  --root out_dynamic_regime_36BX_diag/maps/tracklets_efficiency_HV6_beam.root \
-  --csv out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv \
-  --out-dir out_dynamic_regime_36BX_diag/plots/wp_validation/HV6_beam \
+  --root out_dynamic_regime_36BX/maps/tracklets_efficiency_HV6_beam.root \
+  --csv out_dynamic_regime_36BX/maps/tracklets_full_HV6_beam.csv \
+  --out-dir out_dynamic_regime_36BX/plots/wp_validation/HV6_beam \
   --label $'Chamber 202, 36BX\n1.4 mm double gap iRPC\nFEB v2.3 Petiroc 2C\nthreshold ~ 40 fC' \
   --png \
   --pdf
@@ -807,8 +807,8 @@ For the HV point closest to the fitted WP, use the CSV from the same HV
 and regime as the ROOT diagnostic file:
 
 ``` text
-ROOT: out_dynamic_regime_36BX_diag/maps/tracklets_efficiency_HV6_beam.root
-CSV : out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv
+ROOT: out_dynamic_regime_36BX/maps/tracklets_efficiency_HV6_beam.root
+CSV : out_dynamic_regime_36BX/maps/tracklets_full_HV6_beam.csv
 ```
 
 The simplest command is the full WP-validation command above, because it
@@ -816,9 +816,9 @@ creates both the angle plots and the correlation matrix:
 
 ``` bash
 python3 src/rpc_wp_validation_plots.py \
-  --root out_dynamic_regime_36BX_diag/maps/tracklets_efficiency_HV6_beam.root \
-  --csv out_dynamic_regime_36BX_diag/maps/tracklets_full_HV6_beam.csv \
-  --out-dir out_dynamic_regime_36BX_diag/plots/wp_validation/HV6_beam \
+  --root out_dynamic_regime_36BX/maps/tracklets_efficiency_HV6_beam.root \
+  --csv out_dynamic_regime_36BX/maps/tracklets_full_HV6_beam.csv \
+  --out-dir out_dynamic_regime_36BX/plots/wp_validation/HV6_beam \
   --label $'Chamber 202, 36BX\n1.4 mm double gap iRPC\nFEB v2.3 Petiroc 2C\nthreshold ~ 40 fC' \
   --png \
   --pdf
@@ -827,9 +827,9 @@ python3 src/rpc_wp_validation_plots.py \
 The matrix files are:
 
 ``` text
-out_dynamic_regime_36BX_diag/plots/wp_validation/HV6_beam/08_tracklet_correlation_matrix.png
-out_dynamic_regime_36BX_diag/plots/wp_validation/HV6_beam/08_tracklet_correlation_matrix.pdf
-out_dynamic_regime_36BX_diag/plots/wp_validation/HV6_beam/08_tracklet_correlation_matrix.csv
+out_dynamic_regime_36BX/plots/wp_validation/HV6_beam/08_tracklet_correlation_matrix.png
+out_dynamic_regime_36BX/plots/wp_validation/HV6_beam/08_tracklet_correlation_matrix.pdf
+out_dynamic_regime_36BX/plots/wp_validation/HV6_beam/08_tracklet_correlation_matrix.csv
 ```
 
 The plotted correlation coefficient is the Pearson coefficient. Typical
@@ -856,7 +856,7 @@ To inspect the numerical matrix directly:
 
 ``` bash
 column -s, -t < \
-  out_dynamic_regime_36BX_diag/plots/wp_validation/HV6_beam/08_tracklet_correlation_matrix.csv \
+  out_dynamic_regime_36BX/plots/wp_validation/HV6_beam/08_tracklet_correlation_matrix.csv \
   | less -S
 ```
 
