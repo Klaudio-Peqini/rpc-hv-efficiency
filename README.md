@@ -1,5 +1,4 @@
-# rpc-hv-efficiency                                                                     
-
+# rpc-hv-efficiency                                                                      
 **Tracklet-based RPC efficiency vs High Voltage (HV) analysis**\
 *(CMS/RPC-style workflow for laboratory or QC studies)*
 
